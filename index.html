@@ -309,35 +309,44 @@
 	}
 
 	function checkNewDay(){
-	let t = today();
-
-	if(!state.lastDay){
-	state.lastDay = t;
-	commit();
-	return;
-	}
-
-	if(state.lastDay !== t){
-
-	let penalty = 0;
-
-	// 计算昨天未完成
-	state.habits.forEach(h=>{
-	let done = h.log[state.lastDay] || 0;
-	if(done < h.m){
-	penalty += h.n;
-	}
-	});
-
-	if(penalty > 0){
-	state.score -= penalty;
-	state.logs.unshift(`昨日未完成 -${penalty}`);
-	toast(`昨日扣分 -${penalty}`);
-	}
-
-	state.lastDay = t;
-	commit();
-	}
+	
+		let todayStr = today();
+	
+		if(!state.lastDay){
+			state.lastDay = todayStr;
+			commit();
+			return;
+		}
+	
+		// 🔥 核心：循环补算每一天
+		while(state.lastDay !== todayStr){
+	
+			let penalty = 0;
+	
+			state.habits.forEach(h=>{
+				let done = h.log[state.lastDay] || 0;
+	
+				if(done < h.m){
+					penalty += h.n;
+				}
+	
+				// （可选）清理旧数据
+				// delete h.log[state.lastDay];
+			});
+	
+			if(penalty > 0){
+				state.score -= penalty;
+				state.logs.unshift(`${state.lastDay} 未完成 -${penalty}`);
+			}
+	
+			// 👉 推进一天（关键）
+			let d = new Date(state.lastDay);
+			d.setDate(d.getDate() + 1);
+			state.lastDay = d.toISOString().split("T")[0];
+		}
+	
+		toast("已结算缺失日期");
+		commit();
 	}
 
 	/* ======================
