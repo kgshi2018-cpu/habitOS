@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">	  
+	
+	<link rel="manifest" href="manifest.json">
+
+	<meta content="width=device-width, initial-scale=1.0" name="viewport">
+	<title>HabitOS Commit版</title>
+	<style>
+	body{margin:0;font-family:-apple-system;background:#f5f6f8}
+	.header{position:fixed;top:0;width:100%;background:#4CAF50;color:#fff;padding:14px;text-align:center;font-weight:bold}
+	.bar{display:flex;justify-content:space-between;padding:10px;background:#fff;margin-top:50px}
+	.container{padding:10px 10px 80px}
+	.card{background:#fff;padding:12px;border-radius:14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+	button{padding:10px;border:none;border-radius:10px;margin-right:5px}
+	.primary{background:#4CAF50;color:#fff}
+	.danger{background:#e74c3c;color:#fff}
+	input{width:100%;padding:10px;margin-top:6px;border:1px solid #ddd;border-radius:10px}
+	.nav{position:fixed;bottom:0;width:100%;display:flex;background:#fff;border-top:1px solid #eee}
+	.nav button{flex:1;padding:12px;background:none}
+	.panel{display:none}
+	.active{display:block}
+	.toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);
+	background:#333;color:#fff;padding:10px;border-radius:10px;opacity:0;transition:.3s}
+	.toast.show{opacity:1;bottom:80px}
+	</style>
+</head>
+<body>
+	<div class="header">
+		📱 HabitOS
+	</div>
+	<div class="bar">
+		<div>
+			💰 <span id="score"></span>
+		</div>
+	</div>
+	<div class="card" id="adminScoreUI" style="display:none">
+		<h3>积分调整</h3><button class="primary" onclick="addScore()">+1</button> <button class="danger" onclick="minusScore()">-1</button>
+	</div>
+	<div class="container">
+		<!-- HABITS -->
+		<div class="panel active" id="view0">
+			<div class="card" id="adminHabit" style="display:none">
+				<h3>添加习惯</h3><input id="hName" placeholder="名称"> <input id="hP" placeholder="奖励" type="number"> <input id="hN" placeholder="惩罚" type="number"> <input id="hM" placeholder="每日次数" type="number"> <button class="primary" onclick="addHabit()">添加</button>
+			</div>
+			<div id="habitList"></div>
+		</div><!-- REWARDS -->
+		<div class="panel" id="view1">
+			<div class="card" id="adminReward" style="display:none">
+				<h3>添加奖励</h3><input id="rName" placeholder="名称"> <input id="rCost" placeholder="消耗" type="number"> <button class="primary" onclick="addReward()">添加</button>
+			</div>
+			<div id="rewardList"></div>
+		</div><!-- LOG -->
+		<div class="panel" id="view2">
+			<div class="card" id="logList"></div>
+		</div>
+	</div><!-- NAV -->
+	<div class="nav">
+		<button onclick="tab(0)">习惯</button> <button onclick="tab(1)">奖励</button> <button onclick="tab(2)">记录</button> <button onclick="adminToggle()">管理员</button>
+	</div>
+	<div class="toast" id="toast"></div>
+	<script>
+
+	/* ======================
+	  STATE（普通对象）
+	====================== */
+
+	let state = JSON.parse(localStorage.getItem("habit")) || {
+	score:0,
+	lastDay:"",
+	admin:false,
+	pwd:"123456",
+	habits:[],
+	rewards:[],
+	logs:[]
+	};
+
+	const $ = id => document.getElementById(id);
+
+	/* ======================
+	  commit（核心刷新机制）
+	====================== */
+
+	function commit(){
+	localStorage.setItem("habit",JSON.stringify(state));
+	render();
+	}
+
+	/* ======================
+	  toast
+	====================== */
+
+	function toast(t){
+	let el=$("toast");
+	el.innerText=t;
+	el.classList.add("show");
+	setTimeout(()=>el.classList.remove("show"),1200);
+	}
+
+	/* ======================
+	  utils
+	====================== */
+
+	function today(){
+	return new Date().toISOString().split("T")[0];
+	}
+
+	/* ======================
+	  tab
+	====================== */
+
+	function tab(i){
+	for(let j=0;j<3;j++){
+	$("view"+j).classList.remove("active");
+	}
+	$("view"+i).classList.add("active");
+	}
+
+	/* ======================
+	  admin
+	====================== */
+
+	function adminToggle(){
+	if(!state.admin){
+	let p=prompt("密码");
+	if(p!==state.pwd){toast("密码错误");return;}
+	state.admin=true;
+	showAdmin(true);
+	commit();
+	toast("管理员开启");
+	}else{
+	state.admin=false;
+	showAdmin(false);
+	commit();
+	toast("退出管理员");
+	}
+	}
+
+	function showAdmin(v){
+	$("adminHabit").style.display=v?"block":"none";
+	$("adminReward").style.display=v?"block":"none";
+	}
+
+	/* ======================
+	  HABIT
+	====================== */
+
+	function addHabit(){
+	if(!state.admin) return;
+
+	state.habits.push({
+	name:hName.value,
+	p:+hP.value,
+	n:+hN.value,
+	m:Math.max(1,+hM.value||1),
+	log:{}
+	});
+
+	commit();
+	}
+
+	function done(i){
+	let h=state.habits[i];
+	let t=today();
+
+	if(!h.log[t])h.log[t]=0;
+	if(h.log[t]>=h.m) return toast("已达上限");
+
+	h.log[t]++;
+	state.score += h.p;
+	state.logs.unshift("+"+h.p+" "+h.name+"  ["+now()+"]");
+	
+	toast("✅ 完成「" + h.name + "」 +"+h.p);
+
+	commit();
+	}
+
+	function delHabit(i){
+	if(!state.admin) return;
+	state.habits.splice(i,1);
+	commit();
+	}
+
+	function editHabit(i){
+	if(!state.admin) return;
+
+	let h = state.habits[i];
+
+	let name = prompt("习惯名称", h.name);
+	let p = prompt("奖励", h.p);
+	let n = prompt("惩罚", h.n);
+	let m = prompt("每日次数", h.m);
+
+	if(name !== null) h.name = name;
+	if(p !== null) h.p = +p;
+	if(n !== null) h.n = +n;
+	if(m !== null) h.m = +m;
+
+	commit();
+	}
+
+	function undo(i){
+	let h = state.habits[i];
+	let t = today();
+
+	if(!h.log[t] || h.log[t] <= 0){
+	return toast("没有可撤销的记录");
+	}
+
+	h.log[t]--;
+	state.score -= h.p;   // 撤销奖励
+	state.logs.unshift("-"+h.p+" 撤销 "+h.name+"  ["+now()+"]");
+
+	commit();
+	}
+
+	/* ======================
+	  REWARD
+	====================== */
+
+	function addReward(){
+	if(!state.admin) return;
+
+	state.rewards.push({
+	name:rName.value,
+	cost:+rCost.value,
+	count:0
+	});
+
+	commit();
+	}
+
+	function buy(i){
+	let r=state.rewards[i];
+
+	if(state.score<r.cost) return toast("积分不足");
+
+	state.score -= r.cost;
+	r.count++;
+
+	state.logs.unshift("-"+r.cost+" "+r.name+"  ["+now()+"]");
+
+	commit();
+	}
+
+	function use(i){
+	let r=state.rewards[i];
+
+	if(r.count<=0) return toast("无库存");
+
+	r.count--;
+	state.logs.unshift("使用 "+r.name+"  ["+now()+"]");
+
+	commit();
+	}
+
+	function delReward(i){
+	if(!state.admin) return;
+	state.rewards.splice(i,1);
+	commit();
+	}
+
+	function editReward(i){
+	if(!state.admin) return;
+
+	let r = state.rewards[i];
+
+	let name = prompt("奖励名称", r.name);
+	let cost = prompt("消耗", r.cost);
+
+	if(name !== null) r.name = name;
+	if(cost !== null) r.cost = +cost;
+
+	commit();
+	}
+
+	function addScore(){
+	if(!state.admin) return;
+	state.score += 1;
+	state.logs.unshift("手动 +1");
+	commit();
+	toast("+1 积分");
+	}
+
+	function minusScore(){
+	if(!state.admin) return;
+	state.score -= 1;
+	state.logs.unshift("手动 -1");
+	commit();
+	toast("-1 积分");
+	}
+
+	function resetHabit(i){
+	if(!state.admin) return;
+
+	let h = state.habits[i];
+	let t = today();
+
+	h.log[t] = 0;
+
+	commit();
+	toast("已重置今日习惯");
+	}
+
+	function now(){
+	let d = new Date();
+	return d.toLocaleString();
+	}
+
+	function checkNewDay(){
+	let t = today();
+
+	if(!state.lastDay){
+	state.lastDay = t;
+	commit();
+	return;
+	}
+
+	if(state.lastDay !== t){
+
+	let penalty = 0;
+
+	// 计算昨天未完成
+	state.habits.forEach(h=>{
+	let done = h.log[state.lastDay] || 0;
+	if(done < h.m){
+	penalty += h.n;
+	}
+	});
+
+	if(penalty > 0){
+	state.score -= penalty;
+	state.logs.unshift(`昨日未完成 -${penalty}`);
+	toast(`昨日扣分 -${penalty}`);
+	}
+
+	state.lastDay = t;
+	commit();
+	}
+	}
+
+	/* ======================
+	  RENDER（纯UI）
+	====================== */
+
+	function render(){
+
+	$("score").innerText = state.score;
+	$("adminScoreUI").style.display = state.admin ? "block" : "none";
+
+	/* habits */
+	habitList.innerHTML = state.habits
+	.map((h,i)=>({h,i})) // 保留原索引（关键！）
+	.sort((a,b)=>{
+		let doneA = a.h.log[today()]||0;
+		let doneB = b.h.log[today()]||0;
+
+		let okA = doneA >= a.h.m;
+		let okB = doneB >= b.h.m;
+
+		return okA - okB; 
+		// false(0) 在前，true(1) 在后
+	})
+	.map(({h,i})=>{
+
+	let done = h.log[today()]||0;
+	let ok = done>=h.m;
+	let canUndo = done > 0;
+
+	return `
+	<div class="card" style="background:${ok?'#e8f5e9':'#ffebee'}">
+	<b>${h.name}<\/b>
+	<div>
+	完成 +${h.p} | 未完成 -${h.n} | 已完成 ${done}/${h.m}
+	<\/div>
+
+	<button class="primary" onclick="done(${i})">
+	${ok?'已完成':'完成'}
+	<\/button>
+
+	${canUndo ? `
+	<button class="danger" onclick="undo(${i})">
+	撤销
+	</button>
+	` : ``}
+
+	${state.admin ? `
+	<button onclick="editHabit(${i})">编辑<\/button>
+	<button class="danger" onclick="delHabit(${i})">删除<\/button>
+	<button onclick="resetHabit(${i})">重置今日<\/button>
+	` : ''}
+	<\/div>
+	`;
+	}).join("") || "暂无习惯";
+
+	/* rewards */
+	rewardList.innerHTML = state.rewards.map((r,i)=>`
+	<div class="card">
+	<b>${r.name}<\/b>
+	<div>消耗:${r.cost} | 库存:${r.count}<\/div>
+
+	<button class="primary" onclick="buy(${i})">购买<\/button>
+	<button onclick="use(${i})">使用<\/button>
+
+	${state.admin ? `
+	<button onclick="editReward(${i})">编辑<\/button>
+	<button class="danger" onclick="delReward(${i})">删除<\/button>
+	` : ''}
+	<\/div>
+	`).join("") || "暂无奖励";
+
+	/* logs */
+	logList.innerHTML = state.logs.slice(0,30).join("<br>");
+
+	}
+
+	/* ======================
+	  INIT
+	====================== */
+
+	showAdmin(state.admin);
+	checkNewDay();
+	render();
+
+	setInterval(()=>{
+	checkNewDay();
+	},60000);
+
+	</script>
+	
+	<script>
+		if ("serviceWorker" in navigator) {
+		  navigator.serviceWorker.register("./sw.js");
+		}
+	</script>
+  
+</body>
+</html>
