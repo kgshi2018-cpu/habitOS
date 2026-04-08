@@ -103,7 +103,10 @@
 	====================== */
 
 	function today(){
-	return new Date().toISOString().split("T")[0];
+	  const d = new Date();
+	  return d.getFullYear() + "-" +
+	    String(d.getMonth()+1).padStart(2,'0') + "-" +
+	    String(d.getDate()).padStart(2,'0');
 	}
 
 	/* ======================
@@ -340,9 +343,13 @@
 			}
 	
 			// 👉 推进一天（关键）
-			let d = new Date(state.lastDay);
+			let d = new Date(state.lastDay + "T00:00:00"); // 强制本地时间
 			d.setDate(d.getDate() + 1);
-			state.lastDay = d.toISOString().split("T")[0];
+			
+			state.lastDay =
+			  d.getFullYear() + "-" +
+			  String(d.getMonth()+1).padStart(2,'0') + "-" +
+			  String(d.getDate()).padStart(2,'0');
 		}
 	
 		toast("已结算缺失日期");
