@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta charset="UTF-8">	  
-	
+	<meta charset="UTF-8">
 	<link rel="manifest" href="manifest.json">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>wallet</title>
 
-	<meta content="width=device-width, initial-scale=1.0" name="viewport">
-	<title>HabitOS Commit版</title>
 	<style>
 	body{margin:0;font-family:-apple-system;background:#f5f6f8}
 	.header{position:fixed;top:0;width:100%;background:#4CAF50;color:#fff;padding:14px;text-align:center;font-weight:bold}
@@ -26,70 +25,245 @@
 	.toast.show{opacity:1;bottom:80px}
 	</style>
 </head>
+
 <body>
-	<div class="header">
-		📱 HabitOS
-	</div>
+
+	<div class="header">Wallet</div>
+
 	<div class="bar">
 		<div>
-			💰 <span id="score"></span>
+			💰 余额: <span id="money"></span> ｜ 💳 欠款: <span id="debt"></span> ｜ 📊 利率: <span id="rate"></span>
+			<span id="status"></span>
 		</div>
 	</div>
-	<div class="card" id="adminScoreUI" style="display:none">
-		<h3>积分调整</h3><button class="primary" onclick="addScore()">+1</button> <button class="danger" onclick="minusScore()">-1</button>
-	</div>
+
+
 	<div class="container">
+
 		<!-- HABITS -->
 		<div class="panel active" id="view0">
 			<div class="card" id="adminHabit" style="display:none">
-				<h3>添加习惯</h3><input id="hName" placeholder="名称"> <input id="hP" placeholder="奖励" type="number"> <input id="hN" placeholder="惩罚" type="number"> <input id="hM" placeholder="每日次数" type="number"> <button class="primary" onclick="addHabit()">添加</button>
+				<h3>添加收入</h3><input id="hName" placeholder="名称"> <input id="hP" placeholder="奖励" type="number"> <input id="hM" placeholder="每日次数" type="number">
+				<label style="display:block;margin-top:8px"><input id="hStreak" type="checkbox"> 启用连胜/连败机制</label>
+				<label style="display:block;margin-top:8px"><input id="hEnablePenalty" type="checkbox" checked> 启用惩罚</label>
+				<input id="hPenaltyMul" placeholder="惩罚比例(留空=默认)" type="number" step="0.01">
+				<button class="primary" onclick="addHabit()">添加</button>
 			</div>
 			<div id="habitList"></div>
 		</div><!-- REWARDS -->
+		
 		<div class="panel" id="view1">
 			<div class="card" id="adminReward" style="display:none">
-				<h3>添加奖励</h3><input id="rName" placeholder="名称"> <input id="rCost" placeholder="消耗" type="number"> <button class="primary" onclick="addReward()">添加</button>
+				<h3>添加支出</h3><input id="rName" placeholder="名称"> <input id="rCost" placeholder="消耗" type="number">
+				<label style="display:block;margin-top:8px"><input id="rGrad" type="checkbox"> 启用花费梯度</label>
+				<button class="primary" onclick="addReward()">添加</button>
 			</div>
 			<div id="rewardList"></div>
+			
+					<!-- 还款 -->
+			<div class="card">
+				<h3>还款</h3>
+				<input id="repayAmount" placeholder="输入还款金额">
+				<button class="primary" onclick="repay()">还款</button>
+			</div>
+			
+			<div class="card">
+				<h3>借钱</h3>
+				<input id="borrowAmount" placeholder="输入借款金额">
+				<div style="margin-top:6px;color:#666;font-size:12px">本月借钱额度：<span id="borrowQuota"></span></div>
+				<button class="danger" onclick="borrow()">借钱</button>
+			</div>
 		</div><!-- LOG -->
+		
 		<div class="panel" id="view2">
 			<div class="card" id="logList"></div>
 		</div>
-	</div><!-- NAV -->
-	<div class="nav">
-		<button onclick="tab(0)">习惯</button> <button onclick="tab(1)">奖励</button> <button onclick="tab(2)">记录</button> <button onclick="adminToggle()">管理员</button>
+		
+		<div class="panel" id="view3">
+			<div class="card">
+				<h3>当前时段</h3>
+				<div id="currentTask" style="font-weight:700"></div>
+			</div>
+			<div class="card" id="scheduleTable"></div>
+		</div>
+		
+		
+	<!-- 财务设置 -->
+		<div class="panel" id="view4">
+		<div class="card" id="adminPanel" style="display:none">
+
+			<h3>管理员面板</h3>
+
+			<!-- 时间 -->
+			<div class="card">
+				<h3>时间调试</h3>
+				<button class="primary" onclick="nextDay()">⏭ 下一天</button>
+			</div>
+
+			<!-- 财务 -->
+			<div class="card">
+				<h3>财务设置</h3>
+				<div>设置当前余额</div>
+				<input id="setMoney" placeholder="当前余额">
+				<div>设置当前欠款</div>
+				<input id="setDebt" placeholder="当前欠款">
+				<button class="primary" onclick="updateBasicFinance()">更新财务</button>
+			</div>
+
+			<!-- 利息 -->
+			<div class="card">
+				<h3>利息设置</h3>
+				<div>设置月利率 (0.05=5%)</div>
+				<input id="setRate" placeholder="月利率 (0.05=5%)">
+				<div>设置每日利息下限</div>
+				<input id="setMin" placeholder="每日利息下限">
+				<div>设置每日利息上限</div>
+				<input id="setMax" placeholder="每日利息上限">
+				<button class="primary" onclick="updateInterest()">更新利息</button>
+			</div>
+			
+			<div class="card">
+				<h3>借款设置</h3>
+				<div>设置每月借款上限</div>
+				<input id="setBorrowLimit" placeholder="每月借款上限">
+				<button class="primary" onclick="updateBorrowRule()">更新借款上限</button>
+				<div style="margin-top:6px;color:#666;font-size:12px">本月已借: <span id="borrowUsed"></span></div>
+			</div>
+			
+			<div class="card">
+				<h3>四阶段规则设置</h3>
+				<div id="stageConfigList"></div>
+				<button class="primary" onclick="saveStages()">保存阶段设置</button>
+			</div>
+
+			<!-- 退出 -->
+			<button class="danger" onclick="exitAdmin()">退出管理员</button>
+
+		</div>
+		</div>
+
 	</div>
+
+	<div class="nav">
+		<button onclick="tab(0)">收入</button> <button onclick="tab(1)">支出</button> <button onclick="tab(2)">记录</button> <button onclick="tab(3)">日程</button> <button onclick="adminEnter()">管理员</button>
+	</div>
+
 	<div class="toast" id="toast"></div>
+
 	<script>
 
-	/* ======================
-	  STATE（普通对象）
-	====================== */
+/* STATE */
 
 	let state = JSON.parse(localStorage.getItem("habit")) || {
-	score:0,
-	lastDay:"",
-	admin:false,
-	pwd:"123456",
-	habits:[],
-	rewards:[],
-	logs:[]
+		money:0,
+		debt:100,
+		rate:0.3,
+		interestMin:0.9,
+		interestMax:1.1,
+		lastDay:"",
+		admin:false,
+		pwd:"123456",
+		penaltyMultiplier:0.5,
+		borrowLimitMonthly:500,
+		borrowUsedMonth:0,
+		borrowMonth:"",
+		stages:[
+			{ name:"第一阶段", min:0, max:300, color:"#e8f4ff", autoRepayRatio:0, spendMultiplier:1, interestMultiplier:1, borrowFeeMultiplier:0.05, canBuyReward:true, canBorrow:true },
+			{ name:"第二阶段", min:300, max:800, color:"#e8f5e9", autoRepayRatio:0.2, spendMultiplier:1.05, interestMultiplier:1.05, borrowFeeMultiplier:0.1, canBuyReward:true, canBorrow:true },
+			{ name:"第三阶段", min:800, max:1500, color:"#fff3e0", autoRepayRatio:0.4, spendMultiplier:1.2, interestMultiplier:1.15, borrowFeeMultiplier:0.15, canBuyReward:true, canBorrow:true },
+			{ name:"第四阶段", min:1500, max:null, color:"#ffebee", autoRepayRatio:0.5, spendMultiplier:1.3, interestMultiplier:1.2, borrowFeeMultiplier:0.2, canBuyReward:true, canBorrow:false }
+		],
+		habits:[],
+		rewards:[],
+		logs:[]
 	};
+
+	function normalizeLogs(){
+		state.logs = (state.logs || []).map(l => {
+			if(typeof l === "string"){
+				return {
+					time: now(),
+					item: l,
+					deltaMoney: 0,
+					debt: state.debt,
+					balance: state.money
+				};
+			}
+			return {
+				time: l.time || now(),
+				item: l.item || "",
+				deltaMoney: Number(l.deltaMoney || 0),
+				debt: Number(l.debt ?? state.debt),
+				balance: Number(l.balance ?? state.money)
+			};
+		});
+	}
+	
+	function normalizeStages(){
+		if(!Array.isArray(state.stages) || state.stages.length !== 4){
+			state.stages = [
+				{ name:"第一阶段", min:0, max:300, color:"#e8f4ff", autoRepayRatio:0, spendMultiplier:1, interestMultiplier:1, borrowFeeMultiplier:0.05, canBuyReward:true, canBorrow:true },
+				{ name:"第二阶段", min:300, max:800, color:"#e8f5e9", autoRepayRatio:0.2, spendMultiplier:1.05, interestMultiplier:1.05, borrowFeeMultiplier:0.1, canBuyReward:true, canBorrow:true },
+				{ name:"第三阶段", min:800, max:1500, color:"#fff3e0", autoRepayRatio:0.4, spendMultiplier:1.2, interestMultiplier:1.15, borrowFeeMultiplier:0.15, canBuyReward:true, canBorrow:true },
+				{ name:"第四阶段", min:1500, max:null, color:"#ffebee", autoRepayRatio:0.5, spendMultiplier:1.3, interestMultiplier:1.2, borrowFeeMultiplier:0.2, canBuyReward:true, canBorrow:false }
+			];
+		}
+	
+		state.stages = state.stages.map((s, i) => ({
+			name: s.name || `第${i+1}阶段`,
+			min: Number(s.min ?? 0),
+			max: s.max === null || s.max === "" ? null : Number(s.max),
+			color: s.color || "#ffffff",
+			autoRepayRatio: Number(s.autoRepayRatio ?? 0),
+			spendMultiplier: Number(s.spendMultiplier ?? 1),
+			interestMultiplier: Number(s.interestMultiplier ?? 1),
+			borrowFeeMultiplier: Number(s.borrowFeeMultiplier ?? 0),
+			canBuyReward: s.canBuyReward ?? true,
+			canBorrow: s.canBorrow ?? true
+		}));
+	}
+
+	function normalizeHabits(){
+		state.habits = (state.habits || []).map(h => ({
+			...h,
+			log: h.log || {},
+			winStreak: Number(h.winStreak || 0),
+			loseStreak: Number(h.loseStreak || 0),
+			applyStreak: !!h.applyStreak,
+			enablePenalty: h.enablePenalty ?? true,
+			penaltyMultiplier: h.penaltyMultiplier === undefined || h.penaltyMultiplier === null || h.penaltyMultiplier === "" ? null : Number(h.penaltyMultiplier)
+		}));
+	}
+
+	function normalizeRewards(){
+		state.rewards = (state.rewards || []).map(r => ({
+			name: r.name || "",
+			cost: Number(r.cost || 0),
+			applyPriceGradient: !!r.applyPriceGradient,
+			lastBuyDate: r.lastBuyDate || ""
+		}));
+	}
+
+	function checkBorrowMonth(){
+		let d = new Date();
+		let key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+		if(state.borrowMonth !== key){
+			state.borrowMonth = key;
+			state.borrowUsedMonth = 0;
+		}
+	}
 
 	const $ = id => document.getElementById(id);
 
-	/* ======================
-	  commit（核心刷新机制）
-	====================== */
+	/* commit */
 
 	function commit(){
-	localStorage.setItem("habit",JSON.stringify(state));
-	render();
+		state.logs = state.logs.slice(0, 500);
+		localStorage.setItem("habit",JSON.stringify(state));
+		render();
 	}
 
-	/* ======================
-	  toast
-	====================== */
+	/* toast */
 
 	function toast(t){
 	let el=$("toast");
@@ -98,358 +272,783 @@
 	setTimeout(()=>el.classList.remove("show"),1200);
 	}
 
-	/* ======================
-	  utils
-	====================== */
+	/* utils */
 
 	function today(){
-	  const d = new Date();
-	  return d.getFullYear() + "-" +
-	    String(d.getMonth()+1).padStart(2,'0') + "-" +
-	    String(d.getDate()).padStart(2,'0');
+		let d = new Date();
+		let y = d.getFullYear();
+		let m = String(d.getMonth()+1).padStart(2,'0');
+		let day = String(d.getDate()).padStart(2,'0');
+		return `${y}-${m}-${day}`;
 	}
 
-	/* ======================
-	  tab
-	====================== */
+	function now(){
+	return new Date().toLocaleString();
+	}
 
 	function tab(i){
-	for(let j=0;j<3;j++){
-	$("view"+j).classList.remove("active");
+		let panels = document.querySelectorAll(".panel");
+
+		panels.forEach(p => p.classList.remove("active"));
+
+		panels[i].classList.add("active");
 	}
-	$("view"+i).classList.add("active");
+	
+	function getCurrentStage(){
+		let debt = Number(state.debt || 0);
+		for(let i = 0; i < state.stages.length; i++){
+			let s = state.stages[i];
+			if(debt >= s.min && (s.max === null || debt < s.max)){
+				return s;
+			}
+		}
+		return state.stages[state.stages.length - 1];
 	}
 
-	/* ======================
-	  admin
-	====================== */
-
-	function adminToggle(){
-	if(!state.admin){
-	let p=prompt("密码");
-	if(p!==state.pwd){toast("密码错误");return;}
-	state.admin=true;
-	showAdmin(true);
-	commit();
-	toast("管理员开启");
-	}else{
-	state.admin=false;
-	showAdmin(false);
-	commit();
-	toast("退出管理员");
+	function getWinBonusRate(streakDay){
+		if(streakDay <= 1) return 0;
+		let p1 = Math.max(0, Math.min(streakDay, 4) - 1);
+		let p2 = Math.max(0, Math.min(streakDay, 8) - 4);
+		let p3 = Math.max(0, Math.min(streakDay, 15) - 8);
+		let extra = p1 * 0.05 + p2 * 0.03 + p3 * 0.01;
+		return +extra.toFixed(4);
 	}
+
+	function getLosePenaltyMul(loseStreak){
+		if(loseStreak >= 4) return 1.3;
+		if(loseStreak === 3) return 1.2;
+		if(loseStreak === 2) return 1.1;
+		return 1;
+	}
+
+	function daysBetween(d1, d2){
+		let [y1,m1,day1] = d1.split('-').map(Number);
+		let [y2,m2,day2] = d2.split('-').map(Number);
+		let t1 = new Date(y1, m1-1, day1).getTime();
+		let t2 = new Date(y2, m2-1, day2).getTime();
+		return Math.floor((t2 - t1) / 86400000);
+	}
+
+	function getRewardGradientRate(r){
+		if(!r.applyPriceGradient || !r.lastBuyDate) return 0;
+		let gap = daysBetween(r.lastBuyDate, today());
+		if(gap <= 0) return 1;
+		if(gap === 1) return 0.5;
+		if(gap === 2) return 0;
+		if(gap === 3) return -0.04;
+		if(gap === 4) return -0.07;
+		if(gap === 5) return -0.09;
+		return -0.1;
+	}
+	
+	const schedule = [
+		{ range:"6:30-7:00", task:"起床，瑜伽", start:390, end:420 },
+		{ range:"7:00-7:30", task:"早饭", start:420, end:450 },
+		{ range:"7:30-11:30", task:"学习", start:450, end:690 },
+		{ range:"11:30-12:30", task:"午饭", start:690, end:750 },
+		{ range:"12:30-13:00", task:"读书", start:750, end:780 },
+		{ range:"13:00-13:30", task:"午觉", start:780, end:810 },
+		{ range:"13:30-17:30", task:"学习", start:810, end:1050 },
+		{ range:"17:30-19:00", task:"晚饭，娱乐", start:1050, end:1140 },
+		{ range:"19:00-20:30", task:"学习", start:1140, end:1230 },
+		{ range:"20:30-21:00", task:"出门散步", start:1230, end:1260 },
+		{ range:"21:00-21:30", task:"运动", start:1260, end:1290 },
+		{ range:"21:30-22:00", task:"洗澡，整理房间", start:1290, end:1320 },
+		{ range:"22:00-23:00", task:"读书，写日记", start:1320, end:1380 },
+		{ range:"23:00-6:30", task:"睡觉", start:1380, end:390 }
+	];
+	
+	function getCurrentTask(){
+		let d = new Date();
+		let mins = d.getHours() * 60 + d.getMinutes();
+	
+		return schedule.find(s => {
+			if(s.start < s.end){
+				return mins >= s.start && mins < s.end;
+			}
+			return mins >= s.start || mins < s.end;
+		});
+	}
+
+
+/* admin */
+
+	function adminEnter(){
+		if(!state.admin){
+			let p = prompt("密码");
+			if(p !== state.pwd){
+				toast("密码错误");
+				return;
+			}
+			state.admin = true;
+			showAdmin(true);
+			commit();
+			toast("管理员开启");
+		}
+		tab(4);
 	}
 
 	function showAdmin(v){
-	$("adminHabit").style.display=v?"block":"none";
-	$("adminReward").style.display=v?"block":"none";
+		$("adminPanel").style.display = v ? "block" : "none";
+
+		$("adminHabit").style.display = v ? "block" : "none";
+		$("adminReward").style.display = v ? "block" : "none";
 	}
+
 
 	/* ======================
 	  HABIT
 	====================== */
 
 	function addHabit(){
-	if(!state.admin) return;
+		if(!state.admin) return;
 
-	state.habits.push({
-	name:hName.value,
-	p:+hP.value,
-	n:+hN.value,
-	m:Math.max(1,+hM.value||1),
-	log:{}
-	});
+		const name = document.getElementById("hName").value;
+		const p = +document.getElementById("hP").value;
+		const m = +document.getElementById("hM").value;
+		const applyStreak = document.getElementById("hStreak").checked;
+		const enablePenalty = document.getElementById("hEnablePenalty").checked;
+		const pmRaw = document.getElementById("hPenaltyMul").value.trim();
 
-	commit();
-	}
+		state.habits.push({
+			name,
+			p,
+			m: Math.max(1, m || 1),
+			log:{},
+			winStreak:0,
+			loseStreak:0,
+			applyStreak,
+			enablePenalty,
+			penaltyMultiplier: pmRaw === "" ? null : Number(pmRaw)
+		});
 
-	function done(i){
-	let h=state.habits[i];
-	let t=today();
+		document.getElementById("hName").value = "";
+		document.getElementById("hP").value = "";
+		document.getElementById("hM").value = "";
+		document.getElementById("hStreak").checked = false;
+		document.getElementById("hEnablePenalty").checked = true;
+		document.getElementById("hPenaltyMul").value = "";
 
-	if(!h.log[t])h.log[t]=0;
-	if(h.log[t]>=h.m) return toast("已达上限");
-
-	h.log[t]++;
-	state.score += h.p;
-	state.logs.unshift("+"+h.p+" "+h.name+"  ["+now()+"]");
-	
-	toast("✅ 完成「" + h.name + "」 +"+h.p);
-
-	commit();
-	}
-
-	function delHabit(i){
-	if(!state.admin) return;
-	state.habits.splice(i,1);
-	commit();
-	}
-
-	function editHabit(i){
-	if(!state.admin) return;
-
-	let h = state.habits[i];
-
-	let name = prompt("习惯名称", h.name);
-	let p = prompt("奖励", h.p);
-	let n = prompt("惩罚", h.n);
-	let m = prompt("每日次数", h.m);
-
-	if(name !== null) h.name = name;
-	if(p !== null) h.p = +p;
-	if(n !== null) h.n = +n;
-	if(m !== null) h.m = +m;
-
-	commit();
-	}
-
-	function undo(i){
-	let h = state.habits[i];
-	let t = today();
-
-	if(!h.log[t] || h.log[t] <= 0){
-	return toast("没有可撤销的记录");
-	}
-
-	h.log[t]--;
-	state.score -= h.p;   // 撤销奖励
-	state.logs.unshift("-"+h.p+" 撤销 "+h.name+"  ["+now()+"]");
-
-	commit();
-	}
-
-	/* ======================
-	  REWARD
-	====================== */
-
-	function addReward(){
-	if(!state.admin) return;
-
-	state.rewards.push({
-	name:rName.value,
-	cost:+rCost.value,
-	count:0
-	});
-
-	commit();
-	}
-
-	function buy(i){
-	let r=state.rewards[i];
-
-	if(state.score<r.cost) return toast("积分不足");
-
-	state.score -= r.cost;
-	r.count++;
-
-	state.logs.unshift("-"+r.cost+" "+r.name+"  ["+now()+"]");
-
-	commit();
-	}
-
-	function use(i){
-	let r=state.rewards[i];
-
-	if(r.count<=0) return toast("无库存");
-
-	r.count--;
-	state.logs.unshift("使用 "+r.name+"  ["+now()+"]");
-
-	commit();
-	}
-
-	function delReward(i){
-	if(!state.admin) return;
-	state.rewards.splice(i,1);
-	commit();
-	}
-
-	function editReward(i){
-	if(!state.admin) return;
-
-	let r = state.rewards[i];
-
-	let name = prompt("奖励名称", r.name);
-	let cost = prompt("消耗", r.cost);
-
-	if(name !== null) r.name = name;
-	if(cost !== null) r.cost = +cost;
-
-	commit();
-	}
-
-	function addScore(){
-	if(!state.admin) return;
-	state.score += 1;
-	state.logs.unshift("手动 +1");
-	commit();
-	toast("+1 积分");
-	}
-
-	function minusScore(){
-	if(!state.admin) return;
-	state.score -= 1;
-	state.logs.unshift("手动 -1");
-	commit();
-	toast("-1 积分");
-	}
-
-	function resetHabit(i){
-	if(!state.admin) return;
-
-	let h = state.habits[i];
-	let t = today();
-
-	h.log[t] = 0;
-
-	commit();
-	toast("已重置今日习惯");
-	}
-
-	function now(){
-	let d = new Date();
-	return d.toLocaleString();
-	}
-
-	function checkNewDay(){
-	
-		let todayStr = today();
-	
-		if(!state.lastDay){
-			state.lastDay = todayStr;
-			commit();
-			return;
-		}
-	
-		// 🔥 核心：循环补算每一天
-		while(state.lastDay !== todayStr){
-	
-			let penalty = 0;
-	
-			state.habits.forEach(h=>{
-				let done = h.log[state.lastDay] || 0;
-	
-				if(done < h.m){
-					penalty += h.n;
-				}
-	
-				// （可选）清理旧数据
-				// delete h.log[state.lastDay];
-			});
-	
-			if(penalty > 0){
-				state.score -= penalty;
-				state.logs.unshift(`${state.lastDay} 未完成 -${penalty}`);
-			}
-	
-			// 👉 推进一天（关键）
-			let d = new Date(state.lastDay + "T00:00:00"); // 强制本地时间
-			d.setDate(d.getDate() + 1);
-			
-			state.lastDay =
-			  d.getFullYear() + "-" +
-			  String(d.getMonth()+1).padStart(2,'0') + "-" +
-			  String(d.getDate()).padStart(2,'0');
-		}
-	
-		toast("已结算缺失日期");
 		commit();
 	}
 
-	/* ======================
-	  RENDER（纯UI）
-	====================== */
+	function done(i){
+		let h=state.habits[i];
+		let t=today();
+		let stage = getCurrentStage();
 
-	function render(){
+		if(!h.log[t])h.log[t]=0;
+		if(h.log[t]>=h.m) return toast("已达上限");
 
-	$("score").innerText = state.score;
-	$("adminScoreUI").style.display = state.admin ? "block" : "none";
+		h.log[t]++;
+		
+		let streakDay = h.winStreak + 1;
+		let bonusRate = h.applyStreak ? getWinBonusRate(streakDay) : 0;
+		let income = +(h.p * (1 + bonusRate)).toFixed(2);
 
-	/* habits */
-	habitList.innerHTML = state.habits
-	.map((h,i)=>({h,i})) // 保留原索引（关键！）
-	.sort((a,b)=>{
-		let doneA = a.h.log[today()]||0;
-		let doneB = b.h.log[today()]||0;
+		// 阶段自动还债
+		if(state.debt > 0 && stage.autoRepayRatio > 0){
+			let repay = Math.min(state.debt, income * stage.autoRepayRatio);
+			let remain = income - repay;
 
-		let okA = doneA >= a.h.m;
-		let okB = doneB >= b.h.m;
+			state.debt -= repay;
+			state.money += remain;
 
-		return okA - okB; 
-		// false(0) 在前，true(1) 在后
-	})
-	.map(({h,i})=>{
+			pushLog("完成 " + h.name + `（连胜+${(bonusRate*100).toFixed(0)}%，阶段自动还债）`, remain);
+		}else{
+			state.money += income;
+			pushLog("完成 " + h.name + `（连胜+${(bonusRate*100).toFixed(0)}%）`, income);
+		}
+		
+		toast("✅ 完成「" + h.name + "」 +" + income.toFixed(2));
 
-	let done = h.log[today()]||0;
-	let ok = done>=h.m;
-	let canUndo = done > 0;
-
-	return `
-	<div class="card" style="background:${ok?'#e8f5e9':'#ffebee'}">
-	<b>${h.name}<\/b>
-	<div>
-	完成 +${h.p} | 未完成 -${h.n} | 已完成 ${done}/${h.m}
-	<\/div>
-
-	<button class="primary" onclick="done(${i})">
-	${ok?'已完成':'完成'}
-	<\/button>
-
-	${canUndo ? `
-	<button class="danger" onclick="undo(${i})">
-	撤销
-	</button>
-	` : ``}
-
-	${state.admin ? `
-	<button onclick="editHabit(${i})">编辑<\/button>
-	<button class="danger" onclick="delHabit(${i})">删除<\/button>
-	<button onclick="resetHabit(${i})">重置今日<\/button>
-	` : ''}
-	<\/div>
-	`;
-	}).join("") || "暂无习惯";
-
-	/* rewards */
-	rewardList.innerHTML = state.rewards.map((r,i)=>`
-	<div class="card">
-	<b>${r.name}<\/b>
-	<div>消耗:${r.cost} | 库存:${r.count}<\/div>
-
-	<button class="primary" onclick="buy(${i})">购买<\/button>
-	<button onclick="use(${i})">使用<\/button>
-
-	${state.admin ? `
-	<button onclick="editReward(${i})">编辑<\/button>
-	<button class="danger" onclick="delReward(${i})">删除<\/button>
-	` : ''}
-	<\/div>
-	`).join("") || "暂无奖励";
-
-	/* logs */
-	logList.innerHTML = state.logs.slice(0,30).join("<br>");
-
+		commit();
 	}
 
-	/* ======================
-	  INIT
-	====================== */
+	function delHabit(i){
+		if(!state.admin) return;
+		state.habits.splice(i,1);
+		commit();
+	}
 
+	function editHabit(i){
+		if(!state.admin) return;
+
+		let h = state.habits[i];
+
+		let name = prompt("习惯名称", h.name);
+		let p = prompt("奖励", h.p);
+		let m = prompt("每日次数", h.m);
+		let applyStreak = confirm("是否启用连胜/连败机制？\n确定=启用，取消=关闭");
+		let enablePenalty = confirm("是否启用惩罚？\n确定=启用，取消=关闭");
+		let penaltyMultiplier = prompt("惩罚比例(留空=默认)", h.penaltyMultiplier ?? "");
+
+		if(name !== null) h.name = name;
+		if(p !== null) h.p = +p;
+		if(m !== null) h.m = +m;
+		h.applyStreak = applyStreak;
+		h.enablePenalty = enablePenalty;
+		if(penaltyMultiplier !== null){
+			let t = String(penaltyMultiplier).trim();
+			h.penaltyMultiplier = t === "" ? null : Number(t);
+		}
+
+		commit();
+	}
+
+	function undo(i){
+		let h = state.habits[i];
+		let t = today();
+
+		if(!h.log[t] || h.log[t] <= 0){
+		return toast("没有可撤销的记录");
+		}
+
+		h.log[t]--;
+		state.money -= h.p;   // 撤销奖励
+		pushLog("撤销 " + h.name, -h.p);
+
+		commit();
+	}
+	
+	function addReward(){
+		if(!state.admin) return;
+
+		const name = document.getElementById("rName").value;
+		const cost = +document.getElementById("rCost").value;
+		const applyPriceGradient = document.getElementById("rGrad").checked;
+
+		state.rewards.push({
+			name,
+			cost,
+			applyPriceGradient,
+			lastBuyDate:""
+		});
+
+		document.getElementById("rName").value = "";
+		document.getElementById("rCost").value = "";
+		document.getElementById("rGrad").checked = false;
+
+		commit();
+	}
+
+	function buy(i){
+		let r=state.rewards[i];
+		let stage = getCurrentStage();
+
+		if(!stage.canBuyReward) return toast("当前阶段禁止购买");
+
+		let cost = getCost(r);
+		
+		if(state.money < cost) return toast("余额不足");
+
+		state.money -= cost;
+		r.lastBuyDate = today();
+
+		pushLog("购买并使用 " + r.name, -cost);
+
+		commit();
+	}
+
+	function delReward(i){
+		if(!state.admin) return;
+		state.rewards.splice(i,1);
+		commit();
+	}
+
+	function editReward(i){
+		if(!state.admin) return;
+
+		let r = state.rewards[i];
+
+		let name = prompt("奖励名称", r.name);
+		let cost = prompt("消耗", r.cost);
+		let applyPriceGradient = confirm("是否启用花费梯度？\n确定=启用，取消=关闭");
+
+		if(name !== null) r.name = name;
+		if(cost !== null) r.cost = +cost;
+		r.applyPriceGradient = applyPriceGradient;
+
+		commit();
+	}
+	
+	function borrow(){
+		let amt = +borrowAmount.value;
+		let stage = getCurrentStage();
+		checkBorrowMonth();
+
+		if(amt <= 0) return toast("输入错误");
+		if(!stage.canBorrow) return toast("当前阶段禁止借款");
+		if(state.borrowUsedMonth + amt > state.borrowLimitMonthly) return toast("已超过本月借款上限");
+		let fee = +(amt * stage.borrowFeeMultiplier).toFixed(2);
+
+		state.money += amt;
+		state.debt += amt + fee;
+		state.borrowUsedMonth += amt;
+
+		pushLog("借款(手续费 " + fee + ")", amt);
+
+		commit();
+		toast("已借款");
+	}
+	
+	/* 财务设置 */
+	
+	function updateBasicFinance(){
+		if(!state.admin) return;
+
+		if(setMoney.value !== "") state.money = +setMoney.value;
+		if(setDebt.value !== "") state.debt = +setDebt.value;
+
+		pushLog("更新基础财务", 0);
+		commit();
+		toast("基础财务已更新");
+		
+		setMoney.value = "";
+		setDebt.value = "";
+	}
+	
+	function updateInterest(){
+		if(!state.admin) return;
+
+		if(setRate.value !== "") state.rate = +setRate.value;
+		if(setMin.value !== "") state.interestMin = +setMin.value;
+		if(setMax.value !== "") state.interestMax = +setMax.value;
+
+		pushLog("更新利率设置", 0);
+		commit();
+		toast("利率已更新");
+		
+		setRate.value = "";
+		setMin.value = "";
+		setMax.value = "";
+	}
+	
+	function updateBorrowRule(){
+		if(!state.admin) return;
+		if(setBorrowLimit.value !== "") state.borrowLimitMonthly = +setBorrowLimit.value;
+		checkBorrowMonth();
+		pushLog("更新借款上限", 0);
+		commit();
+		toast("借款上限已更新");
+		setBorrowLimit.value = "";
+	}
+	
+	function saveStages(){
+		if(!state.admin) return;
+	
+		state.stages = state.stages.map((old, i) => {
+			let min = Number($("sMin"+i).value);
+			let maxRaw = $("sMax"+i).value.trim();
+			let max = maxRaw === "" ? null : Number(maxRaw);
+			let autoRepayRatio = Number($("sRepay"+i).value);
+			let spendMultiplier = Number($("sSpend"+i).value);
+			let interestMultiplier = Number($("sInterest"+i).value);
+	
+			return {
+				name: $("sName"+i).value || old.name,
+				min: Number.isFinite(min) ? min : old.min,
+				max: max === null ? null : (Number.isFinite(max) ? max : old.max),
+				color: $("sColor"+i).value || old.color,
+				autoRepayRatio: Number.isFinite(autoRepayRatio) ? autoRepayRatio : old.autoRepayRatio,
+				spendMultiplier: Number.isFinite(spendMultiplier) ? spendMultiplier : old.spendMultiplier,
+				interestMultiplier: Number.isFinite(interestMultiplier) ? interestMultiplier : old.interestMultiplier,
+				borrowFeeMultiplier: Number($("sBorrowFee"+i).value),
+				canBuyReward: $("sBuy"+i).checked,
+				canBorrow: $("sCanBorrow"+i).checked
+			};
+		}).sort((a,b)=>a.min-b.min);
+	
+		pushLog("更新阶段规则", 0);
+		commit();
+		toast("阶段设置已更新");
+	}
+	
+	
+
+	/* 还款 */
+
+	function repay(){
+	let amt = +repayAmount.value;
+
+	if(amt<=0) return toast("输入错误");
+	if(state.money < amt) return toast("余额不足");
+
+	state.money -= amt;
+	state.debt -= amt;
+	if(state.debt < 0) state.debt = 0;
+
+	pushLog("还款", -amt);
+
+	commit();
+	toast("还款成功");
+	}
+	
+	function exitAdmin(){
+		state.admin = false;
+		showAdmin(false);
+		commit();
+		toast("已退出管理员模式");
+	}
+	
+	function pushLog(item, deltaMoney = 0){
+
+		state.logs.unshift({
+			time: now(),
+			item,
+			deltaMoney,
+			debt: state.debt,
+			balance: state.money
+		});
+
+		if(state.logs.length > 500) state.logs.length = 500;
+	}
+	
+	function getCost(r){
+		let cost = r.cost;
+		let stage = getCurrentStage();
+		let gradRate = getRewardGradientRate(r);
+
+		cost *= (1 + gradRate);
+		cost *= stage.spendMultiplier;
+
+		return +cost.toFixed(2);
+	}
+	
+
+/* 每日结算 */
+
+function checkNewDay(){
+	let t = today();
+
+	if(!state.lastDay){
+		state.lastDay = t;
+		commit();
+		return;
+	}
+
+	// ✅ 用 while 替代 if（关键点）
+	let safe = 0;
+	while(state.lastDay !== t && safe < 1000){
+		safe++;
+
+		// 👉 计算“下一天”
+		let [y,m,day] = state.lastDay.split('-').map(Number);
+		let d = new Date(y, m-1, day);
+		d.setDate(d.getDate() + 1);
+
+		let y2 = d.getFullYear();
+		let m2 = String(d.getMonth()+1).padStart(2,'0');
+		let day2 = String(d.getDate()).padStart(2,'0');
+		let nextDay = `${y2}-${m2}-${day2}`;
+
+		/* ======================
+		   1. 利息
+		====================== */
+		if(state.debt > 0){
+			let stage = getCurrentStage();
+
+			let dailyRate = Math.pow(1 + state.rate, 1/30) - 1;
+			let interest = state.debt * dailyRate * stage.interestMultiplier;
+			interest = +interest.toFixed(2);
+
+			state.debt += interest;
+
+			pushLog("利息", -interest);
+		}
+
+		/* ======================
+		   2. 未完成惩罚（用旧的一天！）
+		====================== */
+		state.habits.forEach(h=>{
+			let done = h.log[state.lastDay] || 0;
+
+			if(done >= h.m){
+				if(h.applyStreak){
+					h.winStreak = Number(h.winStreak || 0) + 1;
+					h.loseStreak = 0;
+				}else{
+					h.winStreak = 0;
+					h.loseStreak = 0;
+				}
+			}else{
+				if(h.applyStreak){
+					h.loseStreak = Number(h.loseStreak || 0) + 1;
+					h.winStreak = 0;
+				}else{
+					h.loseStreak = 0;
+					h.winStreak = 0;
+				}
+
+				if(h.enablePenalty){
+					let miss = h.m - done;
+					let penaltyBase = h.penaltyMultiplier === null || h.penaltyMultiplier === undefined ? state.penaltyMultiplier : Number(h.penaltyMultiplier);
+					let penaltyMul = h.applyStreak ? getLosePenaltyMul(h.loseStreak) : 1;
+					let penalty = miss * h.p * penaltyBase * penaltyMul;
+					penalty = +penalty.toFixed(2);
+
+					state.money -= penalty;
+
+					pushLog("惩罚 " + h.name + `（${h.applyStreak ? "连败x"+penaltyMul.toFixed(1) : "固定惩罚"}）`, -penalty);
+				}
+			}
+		});
+
+		/* ======================
+		   3. 透支变债务
+		====================== */
+			if(state.money < 0){
+				state.debt += Math.abs(state.money);
+				pushLog("透支 -> 债务 +" + Math.abs(state.money), 0);
+				state.money = 0;
+			}
+
+		/* ======================
+		   4. 推进到下一天
+		====================== */
+		state.lastDay = nextDay;
+	}
+
+	commit();
+}
+
+
+
+/* render */
+
+	function nextDay(){
+		if(!state.admin) return;
+
+		// 👉 当前基准日（优先用 lastDay）
+		let base = state.lastDay || today();
+
+		// ❗ 防止非法日期（很关键）
+		if(!base || !base.includes('-')){
+			base = today();
+		}
+
+		// 👉 用“本地时间方式”解析
+		let [y,m,d] = base.split('-').map(Number);
+		let date = new Date(y, m-1, d);
+
+		// 👉 回退一天（制造“跨天”）
+		date.setDate(date.getDate() - 1);
+
+		// 👉 重新格式化（本地时间）
+		let y2 = date.getFullYear();
+		let m2 = String(date.getMonth()+1).padStart(2,'0');
+		let d2 = String(date.getDate()).padStart(2,'0');
+
+		state.lastDay = `${y2}-${m2}-${d2}`;
+
+		// 👉 触发结算
+		checkNewDay();
+
+		pushLog("⏭ 手动进入下一天", 0);
+		toast("已进入下一天");
+	}
+
+	function render(){
+		let t = today();
+	
+		$("money").innerText = state.money.toFixed(2);
+		$("debt").innerText = state.debt.toFixed(2);
+		$("rate").innerText = (state.rate * 100).toFixed(2) + "% /月";
+	
+		let stage = getCurrentStage();
+		checkBorrowMonth();
+		$("status").innerText = ` ｜ 当前阶段: ${stage.name} ｜ 自动还款: ${(stage.autoRepayRatio*100).toFixed(0)}% ｜ 消费乘数: ${stage.spendMultiplier.toFixed(2)}x`;
+		document.body.style.background = stage.color;
+		borrowUsed.innerText = `${state.borrowUsedMonth.toFixed(2)} / ${state.borrowLimitMonthly.toFixed(2)}`;
+		borrowQuota.innerText = `${state.borrowUsedMonth.toFixed(2)} / ${state.borrowLimitMonthly.toFixed(2)}`;
+
+		habitList.innerHTML = state.habits
+		.map((h,i)=>({h,i})) // 保留原索引（关键！）
+		.sort((a,b)=>{
+			let doneA = a.h.log[t]||0;
+			let doneB = b.h.log[t]||0;
+
+			let okA = doneA >= a.h.m;
+			let okB = doneB >= b.h.m;
+
+			return okA - okB; 
+			// false(0) 在前，true(1) 在后
+		})
+		.map(({h,i})=>{
+
+		let done = h.log[t]||0;
+		let ok = done>=h.m;
+		let canUndo = done > 0;
+		let displayWin = h.applyStreak ? (Number(h.winStreak || 0) + (ok ? 1 : 0)) : 0;
+		let displayLose = h.applyStreak ? (ok ? 0 : Number(h.loseStreak || 0)) : 0;
+		let bonusRate = getWinBonusRate(displayWin);
+		let penaltyMul = getLosePenaltyMul(displayLose);
+		let penaltyPct = Math.round((penaltyMul - 1) * 100);
+		let streakText = "";
+		if(displayWin > 0){
+			streakText = `连续完成: ${displayWin}天（+${(bonusRate*100).toFixed(0)}%）`;
+		}else if(displayLose > 0){
+			streakText = `连续失败: ${displayLose}天（惩罚+${penaltyPct}%）`;
+		}
+
+		return `
+		<div class="card" style="background:${ok?'#e8f5e9':'#ffebee'}">
+		<b>${h.name}<\/b>
+		<div>
+		完成 +${h.p} | 已完成 ${done}/${h.m}
+		<\/div>
+		${streakText ? `<div style="font-size:12px;color:#666;margin-top:4px">${streakText}</div>` : ""}
+
+		<button class="primary" onclick="done(${i})">
+		${ok?'已完成':'完成'}
+		<\/button>
+
+		${canUndo ? `
+		<button class="danger" onclick="undo(${i})">
+		撤销
+		</button>
+		` : ``}
+
+		${state.admin ? `
+		<button onclick="editHabit(${i})">编辑<\/button>
+		<button class="danger" onclick="delHabit(${i})">删除<\/button>
+		` : ''}
+		<\/div>
+		`;
+		}).join("") || "暂无习惯";
+
+		/* rewards */
+		
+		rewardList.innerHTML = state.rewards.map((r,i)=>{
+
+				let cost = getCost(r);
+				let gradRate = getRewardGradientRate(r);
+
+				return `
+				<div class="card">
+				<b>${r.name}<\/b>
+
+				<div>
+					消耗: ${cost}
+					${stage.spendMultiplier > 1 ? ` ⚠(${stage.spendMultiplier}x)` : ""}
+					${r.applyPriceGradient ? ` ｜ 成本: ${gradRate>=0?'+':''}${(gradRate*100).toFixed(0)}%` : ""}
+				</div>
+
+			<button class="primary" onclick="buy(${i})">购买<\/button>
+
+			${state.admin ? `
+			<button onclick="editReward(${i})">编辑<\/button>
+			<button class="danger" onclick="delReward(${i})">删除<\/button>
+			` : ''}
+			</div>
+			`;
+		}).join("") || "暂无奖励";
+
+		logList.innerHTML = `
+		<table style="width:100%; border-collapse: collapse;">
+		<thead>
+		<tr>
+		<th>时间</th>
+		<th>项目</th>
+		<th>余额变动</th>
+		<th>欠款</th>
+		<th>余额</th>
+		</tr>
+		</thead>
+		<tbody>
+		${
+		state.logs.slice(0, 50).map(l => {
+
+			if(typeof l === "string"){
+				return `
+				<tr>
+					<td colspan="5" style="color:#999">
+						${l}
+					</td>
+				</tr>`;
+			}
+
+			return `
+			<tr>
+				<td>${l.time || ""}</td>
+				<td>${l.item || ""}</td>
+				<td>
+					${l.deltaMoney >= 0 ? '+' : ''}${Number(l.deltaMoney).toFixed(2)}
+				</td>
+				<td>${Number(l.debt).toFixed(2)}</td>
+				<td>${Number(l.balance).toFixed(2)}</td>
+			</tr>`;
+		}).join("")
+		}
+		</tbody>
+		</table>
+		`;
+		
+		let cur = getCurrentTask();
+		currentTask.innerText = cur ? `${cur.range} ${cur.task}` : "暂无安排";
+		
+		scheduleTable.innerHTML = `
+		<table style="width:100%; border-collapse: collapse;">
+		<thead>
+		<tr>
+		<th style="text-align:left">时间</th>
+		<th style="text-align:left">事项</th>
+		</tr>
+		</thead>
+		<tbody>
+		${
+		schedule.map(s => `
+			<tr style="${cur && cur.range === s.range ? "font-weight:700;background:#f2fff3;" : ""}">
+				<td>${s.range}</td>
+				<td>${s.task}</td>
+			</tr>
+		`).join("")
+		}
+		</tbody>
+		</table>
+		`;
+		
+		stageConfigList.innerHTML = state.stages.map((s, i) => `
+		<div style="border:1px solid #eee;border-radius:10px;padding:8px;margin-bottom:8px;background:${s.color}">
+			<div><b>阶段${i+1}</b></div>
+			<div>设置阶段名称</div>
+			<input id="sName${i}" value="${s.name}" placeholder="阶段名称">
+			<div>设置最小债务</div>
+			<input id="sMin${i}" value="${s.min}" type="number" placeholder="最小债务">
+			<div>设置最大债务（空=无上限）</div>
+			<input id="sMax${i}" value="${s.max ?? ''}" type="number" placeholder="最大债务(空=无上限)">
+			<div>设置自动还款比例</div>
+			<input id="sRepay${i}" value="${s.autoRepayRatio}" type="number" step="0.01" placeholder="自动还款比例">
+			<div>设置消费乘数</div>
+			<input id="sSpend${i}" value="${s.spendMultiplier}" type="number" step="0.01" placeholder="消费乘数">
+			<div>设置利息乘数</div>
+			<input id="sInterest${i}" value="${s.interestMultiplier}" type="number" step="0.01" placeholder="利息乘数">
+			<div>设置借款手续费乘数</div>
+			<input id="sBorrowFee${i}" value="${s.borrowFeeMultiplier}" type="number" step="0.01" placeholder="借款手续费乘数">
+			<div style="margin-top:6px">
+				<label>颜色 <input id="sColor${i}" value="${s.color}" placeholder="#rrggbb"></label>
+				<label style="margin-left:12px"><input id="sBuy${i}" type="checkbox" ${s.canBuyReward ? "checked" : ""}> 可购买奖励</label>
+				<label style="margin-left:12px"><input id="sCanBorrow${i}" type="checkbox" ${s.canBorrow ? "checked" : ""}> 可借款</label>
+			</div>
+		</div>
+		`).join("");
+		
+		
+	}
+
+	/* INIT */
+
+	normalizeLogs();
+	normalizeStages();
+	normalizeHabits();
+	normalizeRewards();
 	showAdmin(state.admin);
 	checkNewDay();
 	render();
 
-	setInterval(()=>{
-	checkNewDay();
-	},60000);
+	setInterval(checkNewDay,60000);
 
-	</script>
-	
-	<script>
-		if ("serviceWorker" in navigator) {
-		  navigator.serviceWorker.register("./sw.js");
-		}
-	</script>
-  
+</script>
+
 </body>
 </html>
